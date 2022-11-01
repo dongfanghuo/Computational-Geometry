@@ -1,0 +1,227 @@
+多数内容基于5.5.1版本的CGAL的官方文档
+
+https://doc.cgal.org/5.5.1/Manual/index.html
+
+谢绝转载至第三方平台
+
+CGAL由三部分组成
+
+1. 内核（Kernel）
+
+内核包含了固定大小（constant size，推测为内存大小），无法更改的几何对象（geometric primitive objects），以及这些对象之间的运算。几何对象由两部分共同表达，第一部分是由表达类参数化的独立类，独立类负责指定用于计算的基础数据类型，另一部分是作为内核类的成员以获得来自内核更强的灵活性和适配性
+
+2. 基础几何数据结构和算法
+
+基础几何数据结构和算法由特征类（traits classes）参数化，特征类定义数据结构或是算法与他们使用的图元（primitives）之间的接口。很多情况下，CGAL的内核类可以被数据结构和算法当作特征类使用
+
+3. 与几何无关的组件
+
+例如循环器，随机数源，用于调试的I/O支持，同可视化工具的接口等
+
+
+
+IO Streams
+CGAL的IO格式分为三种，ASCII码格式为默认格式；IO内容与运行平台无关，BINARY模式为二进制格式，IO内容与运行平台有关；PRETTY模式对调试比较友好，输出结果包含CGAL对象的类型
+
+
+
+2D and 3D Linear Geometry Kernel
+内核（Kernel）可当作约束类（trait class）使用
+
+谓词（Predicate）返回布尔或枚举类型，如左侧（left_turn），共线（collinear）等，构造（Construction）返回非布尔或枚举类型
+
+笛卡尔内核（Cartesian Kernel）的类型可以直接进行除法，齐次坐标内核（Homogeneous Kernel）的类型使用最后一维坐标代替除法
+
+EPECK(Exact_predicates_exact_constructions_kernel)为CGAL内置预定义笛卡尔内核的一种，提供精确的谓词计算和构造计算，后续内容中关于CGAL具体使用的部分除特殊声明外均为EPECK下的结果
+
+EPECK的FT类型不能进行开方运算
+
+
+
+2D Convex Hulls and Extreme Points
+此包提供akl_toussaint, bykat, eddy, graham_andrew, jarvis, melkman等指定算法，convex_hull_2默认使用bykat或melkman
+
+凸包计算的结果点序为逆时针
+
+
+
+2D Polygons
+Polygon点集默认的底层容器为std::vector
+
+Polygon的循环器只在++和--时提供循环功能使用+=或+n等运算时注意边界情况
+
+可以用CGAL::Projection_traits_xy_3<Kernel>作为多边形特征（PolygonTraits_2），实现三维内核对象沿坐标轴投影结果表达为多边形对象（CGAL::Projection_traits_yz_3<Kernel>和CGAL::Projection_traits_xz_3<Kernel>同理），但未实际验证过效果
+
+
+
+2D Regularized Boolean Set-Operations
+
+上图所示，A为简单多边形，B为相对简单多边形，C为非简单多边形（neither simple nor relatively simple），相对简单是服务于正则化布尔运算（Regularized Boolean Set-Operations）的概念（个人观点），B情形下多边形的is_simple()依然为false
+
+正则化布尔运算要求外轮廓满足A或B且为逆时针，如果为带洞多边形则同时要求每个洞满足A且为顺时针
+
+正则化布尔运算的输入和输出均为多边形或者带洞多边形，但输入输出个数上没有固定关系，CGAL提供Polygon_set_2作为输入输出的管理类
+
+Polygon_set_2同时拥有insert()和join()，两者都有类似的布尔加功能，但insert()会假设Polygon_set_2内先前多边形或带洞多边形与insert参数对象不相交，以此提高计算速度，join则会计算Polygon_set_2内先前多边形或带洞多边形与join参数对象的布尔加
+
+
+
+2D Boolean Operations on Nef Polygons
+Nef2（Nef_polyhedron_2）是由有限多个半平面通过补运算（complement）和交运算（intersection）得到的结果
+
+Nef2分为内部（interior），外部（exterior），边界（boundary），以及衍生出的闭包（closure=interior+boundary），每个名字都有对应的获取相应Nef2的函数接口
+
+正则化运算（regularization）返回当前Nef2的内部的闭包，两个面积互补的有界半平面Nef2做布尔交，结果为退化成边界线的Nef2，is_empty()为false，进行正则化运算后is_empty()方为true
+
+基于Nef2的布尔运算相比二维正则化布尔运算提供了对边界的表达和计算
+
+
+
+2D Straight Skeleton and Polygon Offsetting
+多边形的骨架计算相比膨胀（growing）坍缩（shrinking）计算较为耗时，同多边形的不同幅度膨胀坍缩尽量复用骨架
+
+外骨架用于多边形膨胀计算，外骨架分布在目标带洞多边形外轮廓以外，足够大的矩形外框内，外框在计算时以所需最大偏移（offset）距离作为参数，以满足该距离内的所有膨胀计算
+
+内骨架用于多边形坍缩计算，带洞多边形和与其外轮廓相同的多边形的内骨架有可能不相同
+
+直接计算多边形偏移的函数参数中，InK（Input Kernel）为输入参数的内核类型，SsK（Skeleton Kernel）为构造直骨架的内核类型，OfK为输出偏移多边形的内核类型，其中SsK可以同InK不同，例如为了加速运算在输入为精确构造的InK时搭配非精确构造的SsK
+
+
+
+2D Minkowski Sums
+二维多边形的明可夫斯基加和在两个多边形为凸包的情况下可以有O(m+n)的复杂度，对于非凸包，CGAL提供卷积（convolution）和分解（decomposition）两种方式求和。多数情况下卷积求和速度较快，当两个输入多边形的凹角占比均较大时，分解求和速度较快
+
+
+
+CGAL and the Boost Graph Library
+Boost Graph Library简称BGL，CGAL用到BGL的相关概念继承关系如下图
+
+
+HalfedgeGraph在boost库的图（Graph）的基础上细化了半边的概念，即每条边对应两条方向相反的半边
+
+MutableHalfedgeGraph在HalfedgeGraph基础上加入了增点，增边，以及更新点和半边信息的操作
+
+HalfedgeListGraph在HalfedgeGraph基础上加入了对图中所有半边的遍历功能
+
+FaceGraph在HalfedgeGraph基础上加入了半边描述面的显性维护，以及提供面到对应半边，半边到对应面的访问功能
+
+MutableFaceGraph在FaceGraph和MutableHalfedgeGraph基础上加入了增面，以及调整面和半边关系的操作
+
+FaceListGraph在FaceGraph基础上加入了对途中所有面的遍历功能
+
+
+
+Halfedge Data Structures
+半边数据结构可以表达面图（planar map），多面体（polyhedra）或是其他任意维度的有向二维表面
+
+
+上图描述了半边数据结构以边为核心的拓扑索引关系，向下延申出几何信息，向上得到Polyhedron_3的封装
+
+半边数据结构的实现容器可以为std::list或std::vector，默认为std::list
+
+修饰器（Decorator）用于检查和修改半边数据结构
+
+半边数据结构本身并没有关于有效性（validness）的定义，CGAL采用如下分级表达对半边数据结构不同程度的检查，高等级包含低等级的所有检查：
+
+0级：
+
+1.半边数量为偶数
+
+2.除边界半边的点指针和面指针外，所有指针不等于其默认构造的值（被初始化过）
+
+3.所有半边的对边（opposite halfedge）不等于自身，对边的对边等于自身，首边（next halfedge）的尾边（previous halfedge）等于自身
+
+4.所有点（vertice）的对应边（incident halfedge）的对应点（incident vertex）等于自身， 从每个点的对应边开始，所有围绕该点的半边能组成环形（form a cycle，个人理解为能 从对应边开始走回对应边，而不是形状上的类环形）
+
+5.所有面（face）的对应边（incident halfedge）的对应面（incident face）等于自身，从 每个面的对应边开始，所有围绕该面的半边能组成环形
+
+6.内部变量冗余性检查，迭代器遍历的对象值大小是否与迭代器大小相对应（未交代具 体检查条件）
+
+1级：
+
+所有半边的对应点存在，且等于该半边的首边的尾边的对应点
+
+所有半边的对应面（或洞）等于该边的首边的对应面（或洞）
+
+2级：
+
+可以与点直接接触（reach，非对应incident）的半边的数量等于半边的总数
+
+3级：
+
+可以与面直接接触（reach，非对应incident）的半边的数量等于半边的总数
+
+4级：
+
+normalized_border_is_valid()检查
+
+
+
+3D Polyhedral Surface
+Polyhedron_3的面命名为facet，对应为半边数据结构的（face），facet更常见于对于三维表面（surface）的描述
+
+edges_begin()和halfedges_begin()提供的都是半边（Halfedge）类型的迭代器，区别在于Edge_iterator只会迭代每组边的其中一个半边
+
+normalize_border()将边进行重排序，非边界边（non-border edge）在前，边界边（border edge）在后，以保证对于每个边界边，面（facet）对应的半边（halfedge）在前，洞（hole）对应的半边在后。normalize_border_is_valid()提供对normalize_border()排序结果的检查，满足normalize_border_is_valid()的Polyhedron_3方可调用边计数size_of_border_edges()，半边计数size_of_border_halfedges()，边界边迭代border_edges_begin()，边界半边迭代border_halfedges_begin()
+
+半边的is_border()检查自身是否为边界边，is_border_edge()检查自身或对边是否为边界边
+
+is_closed()函数检查Polyhedron_3是否有边界边存在，is_valid()函数默认做半边数据结构修饰器的第3级检查，以及每个面至少为三角形，非边界边的两个对应面是否不同
+
+内壳可用inside_out()调整面朝向，相比转为Nef_Polyhedron_3后布尔运算，接口调用更为简单
+
+增量构造器（Polyhedron_incremental_builder_3）的begin_surface()可以通过预先传参点、面和洞的数量，预约半边数据结构拓扑的内存
+
+
+
+Surface Mesh
+表面网格（Surface_mesh）是CGAL中除HalfedgeDS和Polyhedron_3之外对半边数据结构的另一种实现，他们之间的区别在于表面网格基于索引而非指针，以及表面网格添加信息到比点、半边、边、面的机制更为简单，并且这些工作在程序运行时进行处理而非编译时。
+
+表面网格采用整形索引对点、半边、边、面进行描述，因此相比64位指针更节省内存开销，同样因为整形索引的连续性，索引也能用于存储特性（proterties）的std::vector
+
+当表面网格中的元素被移除（removed）时，只会被标记为移除状态，必须手动调用垃圾回收函数collect_garbage()去真正释放
+
+表面网格在4.7版本被引入，属于MutableFaceGraph和FaceListGraph类型，因此可以应用到网格简化，网格分割，网格变形等包
+
+
+
+3D Boolean Operations on Nef Polyhedra
+is_closed()函数在官方文档中用于Polyhedron_3到Nef_polyhedron_3的类型可转换验证，但实际中自交且闭合的Polyhedron_3同样在转换Nef_polyhedron_3时会产生崩溃
+
+is_simple()函数在官方文档中用于Nef_polyhedron_3到Polyhedron_3的类型可转换验证，但实际中is_simple()为false的Nef_polyhedron_3同样无法在非流形位置做布尔运算
+
+使用Polyhedron_3构造的Nef_polyhedron_3默认为闭区间（含有边界）
+
+闭区间布尔减边界重合的开区间时，会产生厚度为0的几何体部分，可用regularization()函数去除
+
+对于非流形以外的自交，OFF_to_nef_3()函数提供了接口绕开Polyhedron_3的构造，由.off文件直接读取至Nef_polyhedron_3，实测下Nef_polyhedron_3读取成功且转换Polyhedron_3无自交
+
+
+
+Polygon Mesh Processing
+闭合的三角表面网格，按照相互的拓扑连通性可以分为多个子网格，每个子网格可以把三维空间分为两个子空间，以两个子空间分别作为视点，子网格的每个面的点序都是顺时针和逆时针两种形态，定义将点序看作顺时针的空间为负空间，看作逆时针的空间为正空间。在三角网格没有自交的情况下，如果所有的子网格共享相同的正空间和负空间，则该三角表面网格包围体积（bounds a volume）
+
+流行三角表面网格（manifold triangulated surface mesh）在CGAL网格处理（Polygon Mesh Processing）包文档内的通俗解释为网格所包围的体积没有厚度为0的部分，数学上描述为包围的体积与任意无限小的球空间的交集（intersection）为拓扑球（topological ball），从二维层面来看不允许网格表面（surface）上有非流形点或边存在。C.-K. Shene在其课程页面（https://pages.mtu.edu/~shene/COURSES/cs3621/NOTES/model/manifold.html）上有过类似形象的描述如下图1所示，二流形（2-manifold）当且仅当类似下左图的每一处包围体积与足够小的球空间的相交面可以平滑变形（continuously deformed）成圆盘（open disk），关于平滑变形的定义为扭曲和折叠，但不包括切断和粘合，下图2所示即为一个非流形点的球空间与包围体积的相交面
+
+
+
+网格处理布尔运算（Boolean Operations in Package Polygon Mesh Processing）要求参与运算的输入网格没有自交，且输出的网格为流形三角表面网格。实测当中，当网格处理布尔运算出现非流形结果时，程序发生崩溃，CGAL建议使用Nef_Polyhedron_3处理类似场景，Nef_Polyhedron_3的表现在实际测试当中会出现布尔运算结果is_simple()为false无法使用结果继续进行布尔运算，但没有程序崩溃发生
+
+对于使用到网格处理布尔运算的网格，当网格的内核为精确谓词内核时，布尔运算前的细化（corefinement，类似open cascade的splitter operator）操作会正确地改变网格的拓扑。当网格的内核不为精确构造内核时，结果可能产生自交，例如在精确谓词非精确构造内核下，边被三角形在交点处分割，但受限于浮点数的精度，这些交点位置可能会产生自交，因此为了连续地进行布尔运算，建议使用精确谓词精确构造内核
+
+stitch_borders()并没有容差参数的设置，要求被缝合的每两个边界边的端点严格重合
+
+does_self_intersection()检测在网格中是否存在无拓扑关系的三角形相交
+
+does_bound_a_volume()函数的前置条件为is_closed()并且在自交的情况下，该函数结果无法预测，因此在网格布尔运算前应当前置处理自交等不合法
+
+CGAL中常见的Surface_mesh和Polyhedron_3都属于MutableFaceGraph和FaceListGraph类型，多边形网格处理包中的API对输入参数有不同程度的要求，有些是Surface_mesh专属，有些是Surface_mesh和Polyhedron_3都满足条件
+
+多面体的面和与之相切的多面体点做布尔减运算时，会产生孤立点影响后续布尔运算合法性，可调用remove_isolated_vertices()
+
+random_perturbation()函数的随机抖动方向不可控
+
+
+
+Optimal Distances
+该包提供两凸包多边形之间最短距离计算，计算时间接近与输入凸包点集大小成线性关系，非凸包的距离计算可以应用到二维明可夫斯基加和章节的分解方法
